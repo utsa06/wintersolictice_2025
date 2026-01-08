@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { agentService } from '../services/agentService';
 
 type NodeType = 'trigger' | 'action' | 'condition' | 'data';
 
@@ -23,6 +24,7 @@ interface AgentEdge {
 }
 
 interface Agent {
+  _id?: string;
   id: string;
   name: string;
   description: string;
@@ -36,10 +38,11 @@ interface Agent {
 interface AgentState {
   agents: Agent[];
   currentAgent: Agent | null;
+  loading: boolean;
   
-  loadAgents: () => void;
-  saveAgent: (agent: Agent) => void;
-  deleteAgent: (id: string) => void;
+  loadAgents: () => Promise<void>;
+  saveAgent: (agent: Agent) => Promise<void>;
+  deleteAgent: (id: string) => Promise<void>;
   setCurrentAgent: (agent: Agent | null) => void;
   createNewAgent: () => Agent;
 }
@@ -47,34 +50,45 @@ interface AgentState {
 export const useAgentStore = create<AgentState>((set, get) => ({
   agents: [],
   currentAgent: null,
+  loading: false,
   
-  loadAgents: () => {
-    const stored = localStorage.getItem('agents');
-    if (stored) {
-      set({ agents: JSON.parse(stored) });
+  loadAgents: async () => {
+    try {
+      set({ loading: true });
+      const agents = await agentService.getAll();
+      set({ agents: agents.map((a: any) => ({ ...a, id: a._id })), loading: false });
+    } catch (error) {
+      console.error('Failed to load agents:', error);
+      set({ loading: false });
     }
   },
   
-  saveAgent: (agent) => {
-    const agents = get().agents;
-    const existing = agents.findIndex(a => a.id === agent.id);
-    
-    let newAgents;
-    if (existing >= 0) {
-      newAgents = [...agents];
-      newAgents[existing] = { ...agent, updatedAt: new Date().toISOString() };
-    } else {
-      newAgents = [...agents, agent];
+  saveAgent: async (agent) => {
+    try {
+      if (agent._id) {
+        // Update existing
+        const updated = await agentService.update(agent._id, agent);
+        const agents = get().agents.map(a => a.id === agent.id ? { ...updated, id: updated._id } : a);
+        set({ agents });
+      } else {
+        // Create new
+        const created = await agentService.create(agent);
+        set({ agents: [...get().agents, { ...created, id: created._id }] });
+      }
+    } catch (error) {
+      console.error('Failed to save agent:', error);
+      throw error;
     }
-    
-    localStorage.setItem('agents', JSON.stringify(newAgents));
-    set({ agents: newAgents });
   },
   
-  deleteAgent: (id) => {
-    const agents = get().agents.filter(a => a.id !== id);
-    localStorage.setItem('agents', JSON.stringify(agents));
-    set({ agents });
+  deleteAgent: async (id) => {
+    try {
+      await agentService.delete(id);
+      set({ agents: get().agents.filter(a => a.id !== id) });
+    } catch (error) {
+      console.error('Failed to delete agent:', error);
+      throw error;
+    }
   },
   
   setCurrentAgent: (agent) => set({ currentAgent: agent }),

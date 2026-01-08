@@ -1,5 +1,5 @@
 import React from 'react';
-import { Play, Edit, Trash2, Calendar } from 'lucide-react';
+import { Play, Edit, Trash2, Calendar, Activity } from 'lucide-react';
 
 interface Agent {
   id: string;
@@ -16,9 +16,10 @@ interface AgentCardProps {
   onEdit: () => void;
   onDelete: () => void;
   onRun: () => void;
+  onViewResults?: () => void;
 }
 
-export const AgentCard: React.FC<AgentCardProps> = ({ agent, onEdit, onDelete, onRun }) => {
+export const AgentCard: React.FC<AgentCardProps> = ({ agent, onEdit, onDelete, onRun, onViewResults }) => {
   const statusColors = {
     draft: 'bg-gray-500/20 text-gray-400',
     active: 'bg-green-500/20 text-green-400',
@@ -53,26 +54,42 @@ export const AgentCard: React.FC<AgentCardProps> = ({ agent, onEdit, onDelete, o
         <span>{new Date(agent.createdAt).toLocaleDateString()}</span>
       </div>
 
-      <div className="flex items-center gap-2">
-        <button
-          onClick={onEdit}
-          className="flex-1 px-4 py-2 bg-slate-800 hover:bg-slate-700 rounded-lg text-white font-medium transition-colors flex items-center justify-center gap-2"
-        >
-          <Edit className="w-4 h-4" />
-          Edit
-        </button>
-        <button
-          onClick={onRun}
-          className="px-4 py-2 bg-gradient-to-r from-purple-500 to-pink-500 rounded-lg text-white font-semibold hover:shadow-lg hover:shadow-purple-500/50 transition-all"
-        >
-          <Play className="w-4 h-4" />
-        </button>
-        <button
-          onClick={onDelete}
-          className="px-4 py-2 bg-red-500/20 hover:bg-red-500/30 rounded-lg text-red-400 transition-colors"
-        >
-          <Trash2 className="w-4 h-4" />
-        </button>
+      <div className="flex flex-col gap-2">
+        {/* Primary Actions */}
+        <div className="flex items-center gap-2">
+          <button
+            onClick={onEdit}
+            className="flex-1 px-4 py-2 bg-slate-800 hover:bg-slate-700 rounded-lg text-white font-medium transition-colors flex items-center justify-center gap-2"
+          >
+            <Edit className="w-4 h-4" />
+            Edit
+          </button>
+          <button
+            onClick={onRun}
+            className="px-4 py-2 bg-gradient-to-r from-purple-500 to-pink-500 rounded-lg text-white font-semibold hover:shadow-lg hover:shadow-purple-500/50 transition-all"
+            title="Run Agent"
+          >
+            <Play className="w-4 h-4" />
+          </button>
+          <button
+            onClick={onDelete}
+            className="px-4 py-2 bg-red-500/20 hover:bg-red-500/30 rounded-lg text-red-400 transition-colors"
+            title="Delete Agent"
+          >
+            <Trash2 className="w-4 h-4" />
+          </button>
+        </div>
+
+        {/* View Results Button */}
+        {onViewResults && (
+          <button
+            onClick={onViewResults}
+            className="w-full px-4 py-2 bg-blue-500/20 hover:bg-blue-500/30 border border-blue-500/50 rounded-lg text-blue-300 font-medium transition-all flex items-center justify-center gap-2 group"
+          >
+            <Activity className="w-4 h-4 group-hover:scale-110 transition-transform" />
+            View Execution Results
+          </button>
+        )}
       </div>
     </div>
   );

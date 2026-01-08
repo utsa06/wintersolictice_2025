@@ -1,16 +1,37 @@
 import React, { useState } from 'react';
-import { Sparkles, Zap, Brain, Code, Database, Globe, Video, Calendar, Mail, Layers, ArrowRight, CheckCircle, Menu, X } from 'lucide-react';
+import { Sparkles, Zap, Brain, Code, Database, Globe, Video, Calendar, Mail, Layers, ArrowRight, CheckCircle, Menu, X, BookTemplate } from 'lucide-react';
 import { AgentBuilder } from './pages/AgentBuilder';
 import { Dashboard } from './pages/Dashboard';
+import { Templates } from './pages/Templates';
+import { Profile } from './pages/Profile';
+import { NLAgentCreator } from './pages/NLAgentCreator';
+import { AgentWizard } from './components/wizard/AgentWizard';
+import { GuideBot } from './components/common/GuideBot';
+import { HeroPreview } from './components/common/HeroPreview';
+import { Onboarding } from './components/common/Onboarding';
 
-type Page = 'home' | 'dashboard' | 'builder';
+type Page = 'home' | 'dashboard' | 'builder' | 'templates' | 'profile' | 'nl-creator';
 
 const App = () => {
   const [currentPage, setCurrentPage] = useState<Page>('home');
   const [editingAgentId, setEditingAgentId] = useState<string | undefined>();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [wizardOpen, setWizardOpen] = useState(false);
+  const [showOnboarding, setShowOnboarding] = useState(false);
+  const [hasCompletedOnboarding, setHasCompletedOnboarding] = useState(
+    localStorage.getItem('onboarding_completed') === 'true'
+  );
 
   const handleCreateNew = () => {
+    setWizardOpen(true);
+  };
+
+  const handleCreateWithAI = () => {
+    setCurrentPage('nl-creator');
+  };
+
+  const handleWizardComplete = (description: string) => {
+    console.log('Creating agent from description:', description);
     setEditingAgentId(undefined);
     setCurrentPage('builder');
   };
@@ -20,14 +41,95 @@ const App = () => {
     setCurrentPage('builder');
   };
 
+  const handleUseTemplate = (templateId: string) => {
+    console.log('Using template:', templateId);
+    setEditingAgentId(undefined);
+    setCurrentPage('builder');
+  };
+
+  const handleNLAgentCreated = (agentId: string) => {
+    setEditingAgentId(agentId);
+    setCurrentPage('builder');
+  };
+
+  const handleOnboardingComplete = () => {
+    localStorage.setItem('onboarding_completed', 'true');
+    setHasCompletedOnboarding(true);
+    setShowOnboarding(false);
+    setCurrentPage('dashboard');
+  };
+
+  const handleOnboardingSkip = () => {
+    localStorage.setItem('onboarding_completed', 'true');
+    setHasCompletedOnboarding(true);
+    setShowOnboarding(false);
+    setCurrentPage('dashboard');
+  };
+
+  const navigateToDashboard = () => {
+    if (!hasCompletedOnboarding) {
+      setShowOnboarding(true);
+    } else {
+      setCurrentPage('dashboard');
+    }
+  };
+
+  // Natural Language Creator Page
+  if (currentPage === 'nl-creator') {
+    return (
+      <>
+        <NLAgentCreator 
+          onBack={() => setCurrentPage('dashboard')} 
+          onAgentCreated={handleNLAgentCreated}
+        />
+        <GuideBot />
+      </>
+    );
+  }
+
   // Agent Builder Page
   if (currentPage === 'builder') {
-    return <AgentBuilder agentId={editingAgentId} onBack={() => setCurrentPage('dashboard')} />;
+    return (
+      <>
+        <AgentBuilder agentId={editingAgentId} onBack={() => setCurrentPage('dashboard')} />
+        <GuideBot />
+      </>
+    );
   }
 
   // Dashboard Page
   if (currentPage === 'dashboard') {
-    return <Dashboard onCreateNew={handleCreateNew} onEditAgent={handleEditAgent} />;
+    return (
+      <>
+        <Dashboard 
+          onCreateNew={handleCreateNew} 
+          onCreateWithAI={handleCreateWithAI}
+          onEditAgent={handleEditAgent} 
+        />
+        <AgentWizard isOpen={wizardOpen} onClose={() => setWizardOpen(false)} onComplete={handleWizardComplete} />
+        <GuideBot />
+      </>
+    );
+  }
+
+  // Templates Page
+  if (currentPage === 'templates') {
+    return (
+      <>
+        <Templates onBack={() => setCurrentPage('home')} onUseTemplate={handleUseTemplate} />
+        <GuideBot />
+      </>
+    );
+  }
+
+  // Profile Page
+  if (currentPage === 'profile') {
+    return (
+      <>
+        <Profile onBack={() => setCurrentPage('dashboard')} />
+        <GuideBot />
+      </>
+    );
   }
 
   // Landing Page
@@ -85,7 +187,7 @@ const App = () => {
       {/* Navigation */}
       <nav className="relative z-10 px-6 py-4 backdrop-blur-xl bg-white/5 border-b border-white/10">
         <div className="max-w-7xl mx-auto flex items-center justify-between">
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 cursor-pointer" onClick={() => setCurrentPage('home')}>
             <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-pink-500 rounded-xl flex items-center justify-center">
               <Sparkles className="w-6 h-6" />
             </div>
@@ -98,7 +200,20 @@ const App = () => {
             <a href="#features" className="hover:text-purple-400 transition-colors">Features</a>
             <a href="#use-cases" className="hover:text-purple-400 transition-colors">Use Cases</a>
             <button
+              onClick={() => setCurrentPage('templates')}
+              className="hover:text-purple-400 transition-colors flex items-center gap-2"
+            >
+              <BookTemplate className="w-4 h-4" />
+              Templates
+            </button>
+            <button
               onClick={() => setCurrentPage('dashboard')}
+              className="hover:text-purple-400 transition-colors"
+            >
+              Dashboard
+            </button>
+            <button
+              onClick={navigateToDashboard}
               className="px-6 py-2 bg-gradient-to-r from-purple-500 to-pink-500 rounded-full hover:shadow-lg hover:shadow-purple-500/50 transition-all"
             >
               Get Started
@@ -119,7 +234,19 @@ const App = () => {
               <a href="#features" className="hover:text-purple-400 transition-colors">Features</a>
               <a href="#use-cases" className="hover:text-purple-400 transition-colors">Use Cases</a>
               <button
+                onClick={() => setCurrentPage('templates')}
+                className="text-left hover:text-purple-400 transition-colors"
+              >
+                Templates
+              </button>
+              <button
                 onClick={() => setCurrentPage('dashboard')}
+                className="text-left hover:text-purple-400 transition-colors"
+              >
+                Dashboard
+              </button>
+              <button
+                onClick={navigateToDashboard}
                 className="px-6 py-2 bg-gradient-to-r from-purple-500 to-pink-500 rounded-full"
               >
                 Get Started
@@ -152,14 +279,25 @@ const App = () => {
           
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <button
-              onClick={() => setCurrentPage('dashboard')}
+              onClick={handleCreateWithAI}
+              className="px-8 py-4 bg-gradient-to-r from-green-500 to-emerald-500 rounded-full text-lg font-semibold hover:shadow-2xl hover:shadow-green-500/50 transition-all flex items-center justify-center gap-2 group"
+            >
+              <Sparkles className="w-5 h-5" />
+              Create with AI ✨
+              <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+            </button>
+            <button
+              onClick={navigateToDashboard}
               className="px-8 py-4 bg-gradient-to-r from-purple-500 to-pink-500 rounded-full text-lg font-semibold hover:shadow-2xl hover:shadow-purple-500/50 transition-all flex items-center justify-center gap-2 group"
             >
               Start Building Free
               <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
             </button>
-            <button className="px-8 py-4 bg-white/10 backdrop-blur-sm rounded-full text-lg font-semibold hover:bg-white/20 transition-all border border-white/20">
-              Watch Demo
+            <button
+              onClick={() => setCurrentPage('templates')}
+              className="px-8 py-4 bg-white/10 backdrop-blur-sm rounded-full text-lg font-semibold hover:bg-white/20 transition-all border border-white/20"
+            >
+              Browse Templates
             </button>
           </div>
         </div>
@@ -167,30 +305,14 @@ const App = () => {
         <div className="mt-20 relative">
           <div className="absolute inset-0 bg-gradient-to-r from-purple-500/30 to-pink-500/30 blur-3xl"></div>
           <div className="relative bg-gradient-to-br from-white/10 to-white/5 backdrop-blur-xl rounded-3xl border border-white/20 p-8 shadow-2xl">
-            <div className="aspect-video bg-gradient-to-br from-slate-900 to-purple-900/50 rounded-2xl flex items-center justify-center">
-              <div className="grid grid-cols-3 gap-4 p-8">
-                {[...Array(6)].map((_, i) => (
-                  <div 
-                    key={i}
-                    className="h-24 bg-gradient-to-br from-purple-500/30 to-pink-500/30 rounded-xl backdrop-blur-sm border border-white/10 animate-float"
-                    style={{ animationDelay: `${i * 0.5}s` }}
-                  >
-                    <div className="p-4 h-full flex flex-col justify-between">
-                      <Layers className="w-6 h-6 text-purple-300" />
-                      <div className="space-y-1">
-                        <div className="h-2 bg-white/20 rounded w-3/4"></div>
-                        <div className="h-2 bg-white/20 rounded w-1/2"></div>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
+            <div className="aspect-video bg-gradient-to-br from-slate-900 to-purple-900/50 rounded-2xl">
+              <HeroPreview />
             </div>
           </div>
         </div>
       </section>
 
-      {/* Features and other sections remain the same... */}
+      {/* Features Section */}
       <section id="features" className="relative z-10 px-6 py-20 max-w-7xl mx-auto">
         <div className="text-center mb-16">
           <h2 className="text-4xl md:text-5xl font-bold mb-4">
@@ -217,6 +339,7 @@ const App = () => {
         </div>
       </section>
 
+      {/* Use Cases Section */}
       <section id="use-cases" className="relative z-10 px-6 py-20 max-w-7xl mx-auto">
         <div className="grid lg:grid-cols-2 gap-12 items-center">
           <div>
@@ -277,6 +400,7 @@ const App = () => {
         </div>
       </section>
 
+      {/* CTA Section */}
       <section className="relative z-10 px-6 py-20 max-w-7xl mx-auto">
         <div className="relative bg-gradient-to-br from-purple-500/20 to-pink-500/20 backdrop-blur-xl rounded-3xl border border-white/20 p-12 text-center overflow-hidden">
           <div className="absolute inset-0 bg-gradient-to-r from-purple-500/10 to-pink-500/10 animate-gradient-x"></div>
@@ -287,22 +411,39 @@ const App = () => {
             <p className="text-xl text-gray-300 mb-8 max-w-2xl mx-auto">
               Join thousands of users building intelligent automation with AgentForge
             </p>
-            <button
-              onClick={() => setCurrentPage('dashboard')}
-              className="px-10 py-5 bg-gradient-to-r from-purple-500 to-pink-500 rounded-full text-lg font-semibold hover:shadow-2xl hover:shadow-purple-500/50 transition-all inline-flex items-center gap-2"
-            >
-              Start Building for Free
-              <ArrowRight className="w-5 h-5" />
-            </button>
+            <div className="flex gap-4 justify-center">
+              <button
+                onClick={handleCreateWithAI}
+                className="px-10 py-5 bg-gradient-to-r from-green-500 to-emerald-500 rounded-full text-lg font-semibold hover:shadow-2xl hover:shadow-green-500/50 transition-all inline-flex items-center gap-2"
+              >
+                <Sparkles className="w-5 h-5" />
+                Try AI Creator
+              </button>
+              <button
+                onClick={navigateToDashboard}
+                className="px-10 py-5 bg-gradient-to-r from-purple-500 to-pink-500 rounded-full text-lg font-semibold hover:shadow-2xl hover:shadow-purple-500/50 transition-all inline-flex items-center gap-2"
+              >
+                Start Building for Free
+                <ArrowRight className="w-5 h-5" />
+              </button>
+            </div>
           </div>
         </div>
       </section>
 
+      {/* Footer */}
       <footer className="relative z-10 px-6 py-12 border-t border-white/10 backdrop-blur-xl">
         <div className="max-w-7xl mx-auto text-center text-gray-400">
           <p>&copy; 2024 AgentForge. Built with ❤️ for automation enthusiasts.</p>
         </div>
       </footer>
+
+      <GuideBot />
+      <Onboarding 
+        isOpen={showOnboarding} 
+        onComplete={handleOnboardingComplete}
+        onSkip={handleOnboardingSkip}
+      />
     </div>
   );
 };

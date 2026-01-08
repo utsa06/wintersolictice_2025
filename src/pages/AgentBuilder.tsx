@@ -5,6 +5,7 @@ import { NodeLibrary } from '../components/agent-builder/NodeLibrary';
 import { PropertiesPanel } from '../components/agent-builder/PropertiesPanel';
 import { useCanvasStore } from '../store/canvasStore';
 import { useAgentStore } from '../store/agentStore';
+import { agentService } from '../services/agentService';
 
 interface AgentBuilderProps {
   agentId?: string;
@@ -14,6 +15,7 @@ interface AgentBuilderProps {
 export const AgentBuilder: React.FC<AgentBuilderProps> = ({ agentId, onBack }) => {
   const [agentName, setAgentName] = useState('Untitled Agent');
   const [agentDescription, setAgentDescription] = useState('');
+  const [isExecuting, setIsExecuting] = useState(false);
   const { nodes, edges, clearCanvas, setNodes, setEdges } = useCanvasStore();
   const { agents, saveAgent, createNewAgent } = useAgentStore();
 
@@ -33,27 +35,82 @@ export const AgentBuilder: React.FC<AgentBuilderProps> = ({ agentId, onBack }) =
     }
   }, [agentId, agents, setNodes, setEdges, clearCanvas]);
 
-  const handleSave = () => {
-    const agent = agentId 
-      ? agents.find(a => a.id === agentId)!
-      : createNewAgent();
+  const handleSave = async () => {
+    try {
+      const agent = {
+        _id: agentId,
+        id: agentId || `agent_${Date.now()}`,
+        name: agentName,
+        description: agentDescription,
+        nodes,
+        edges,
+        status: 'draft' as const,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
 
-    const updatedAgent = {
-      ...agent,
-      name: agentName,
-      description: agentDescription,
-      nodes,
-      edges,
-      updatedAt: new Date().toISOString(),
-    };
-
-    saveAgent(updatedAgent);
-    alert('Agent saved successfully!');
+      await saveAgent(agent);
+      alert('✅ Agent saved successfully!');
+    } catch (error) {
+      console.error('Save error:', error);
+      alert('❌ Failed to save agent. Using localStorage as backup.');
+      // Fallback to localStorage
+      const stored = localStorage.getItem('agents') || '[]';
+      const agents = JSON.parse(stored);
+      const existing = agents.findIndex((a: any) => a.id === agentId);
+      if (existing >= 0) {
+        agents[existing] = { id: agentId, name: agentName, description: agentDescription, nodes, edges };
+      } else {
+        agents.push({ id: agentId || `agent_${Date.now()}`, name: agentName, description: agentDescription, nodes, edges });
+      }
+      localStorage.setItem('agents', JSON.stringify(agents));
+      alert('✅ Saved to localStorage!');
+    }
   };
 
-  const handleRun = () => {
-    console.log('Running agent:', { name: agentName, nodes, edges });
-    alert('Agent execution started! (Backend integration coming soon)');
+  const handleRun = async () => {
+    if (nodes.length === 0) {
+      alert('⚠️ Please add some nodes first!');
+      return;
+    }
+
+    if (!agentId) {
+      alert('⚠️ Please save the agent first before running!');
+      return;
+    }
+
+    try {
+      setIsExecuting(true);
+      console.log('🚀 Executing agent:', { id: agentId, name: agentName, nodes, edges });
+
+      const result = await agentService.execute(agentId);
+      
+      console.log('✅ Execution started:', result);
+      
+      alert(`🚀 Agent execution started!\n\n` +
+        `Agent: ${result.agentName}\n` +
+        `Status: ${result.status}\n\n` +
+        `Your workflow:\n` +
+        nodes.map(n => `- ${n.data.label}`).join('\n') +
+        `\n\nCheck the browser console for execution logs.`
+      );
+
+      // Optionally, fetch execution history after a delay
+      setTimeout(async () => {
+        try {
+          const executions = await agentService.getExecutions(agentId);
+          console.log('📊 Recent executions:', executions);
+        } catch (err) {
+          console.error('Failed to fetch executions:', err);
+        }
+      }, 2000);
+
+    } catch (error: any) {
+      console.error('❌ Execution error:', error);
+      alert(`❌ Failed to execute agent!\n\nError: ${error.response?.data?.error || error.message}`);
+    } finally {
+      setIsExecuting(false);
+    }
   };
 
   const handleClear = () => {
@@ -108,10 +165,13 @@ export const AgentBuilder: React.FC<AgentBuilderProps> = ({ agentId, onBack }) =
             </button>
             <button
               onClick={handleRun}
-              className="px-6 py-2 bg-gradient-to-r from-purple-500 to-pink-500 rounded-lg text-white font-semibold hover:shadow-lg hover:shadow-purple-500/50 transition-all flex items-center gap-2"
+              disabled={isExecuting}
+              className={`px-6 py-2 bg-gradient-to-r from-purple-500 to-pink-500 rounded-lg text-white font-semibold hover:shadow-lg hover:shadow-purple-500/50 transition-all flex items-center gap-2 ${
+                isExecuting ? 'opacity-50 cursor-not-allowed' : ''
+              }`}
             >
-              <Play className="w-4 h-4" />
-              Run Agent
+              <Play className={`w-4 h-4 ${isExecuting ? 'animate-spin' : ''}`} />
+              {isExecuting ? 'Running...' : 'Run Agent'}
             </button>
           </div>
         </div>
